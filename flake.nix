@@ -1,5 +1,5 @@
 {
-  description = "<%= name.capitalize() %> distroless image using nix2container";
+  description = "Openclaw distroless image using nix2container";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -13,45 +13,37 @@
     n2c = nix2container.outputs.packages.${system}.nix2container;
     imageConfig = {
       ExposedPorts = {
-        <% for port in ports %>
-        "<%= port %>/tcp" = {};
-        <% endfor %>
+        
+        "18789/tcp" = {};
+        
       };
       Volumes = {
-        <% for volume in volumes %>
-        "<%= volume %>" = {};
-        <% endfor %>
+        
       };
-      <% if env %>
-      Env = [
-        <% for e in env %>
-        "<%= e %>"
-        <% endfor %>
-      ];
-      <% endif %>
-      Cmd = [ "${pkgs.<%= name %>}/bin/<%= main_program or name %>"<% for arg in cmd_args %> "<%= arg %>"<% endfor %> ];
+      
+      Cmd = [ "${pkgs.openclaw}/bin/openclaw" ];
     };
   in {
     packages.${system} = {
-      <%= name %>-image = n2c.buildImage {
-        name = "<%= name %>";
+      openclaw-image = n2c.buildImage {
+        name = "openclaw";
         tag = "latest";
         fromImage = base.packages.${system}.base-image;
         config = imageConfig;
       };
 
-      <%= name %>-debug-image = n2c.buildImage {
-        name = "<%= name %>";
+      openclaw-debug-image = n2c.buildImage {
+        name = "openclaw";
         tag = "latest-debug";
         fromImage = base.packages.${system}.base-debug-image;
         config = imageConfig;
       };
 
-      <%= name %> = pkgs.<%= name %>;
+      openclaw = pkgs.openclaw;
 
-      default = self.packages.${system}.<%= name %>-image;
+      default = self.packages.${system}.openclaw-image;
     };
 
-    <%= name %>Version = pkgs.<%= name %>.version;
+    openclawVersion = pkgs.openclaw.version;
   };
 }

@@ -1,15 +1,13 @@
 services:
-  <%= name %>:
-    image: ghcr.io/podmania/<%= name %>:latest
+  openclaw:
+    image: ghcr.io/podmania/openclaw:latest
     userns_mode: "keep-id"
-    container_name: <%= name %>
+    container_name: openclaw
     ports:
-      <% for port in ports %>
-      - <%= port %>:<%= port %>
-      <% endfor %>
+      
+      - 18789:18789
+      
     volumes:
-      <% for volume in volumes %>
-      - ./<%= volume | replace('/', '') %>:<%= volume %>
-      <% endfor %>
+      
       - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
