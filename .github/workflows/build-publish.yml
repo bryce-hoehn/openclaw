@@ -28,10 +28,10 @@ jobs:
       - uses: actions/checkout@v6
       - uses: DeterminateSystems/nix-installer-action@main
 
-      - name: Get current <%= name %> version from nixpkgs
+      - name: Get current openclaw version from nixpkgs
         id: version
         run: |
-          VERSION=$(nix eval .#<%= name %>Version --raw --impure)
+          VERSION=$(nix eval .#openclawVersion --raw --impure)
           echo "new_version=$VERSION" >> $GITHUB_OUTPUT
       - name: Check if version already exists or force rebuild requested
         id: check
@@ -97,14 +97,14 @@ jobs:
 
       - name: Build and load images
         run: |
-          nix run .#<%= name %>-image.copyToDockerDaemon --impure
-          nix run .#<%= name %>-debug-image.copyToDockerDaemon --impure
+          nix run .#openclaw-image.copyToDockerDaemon --impure
+          nix run .#openclaw-debug-image.copyToDockerDaemon --impure
       - name: Save images to file
         run: |
           VERSION="${{ needs.check-version.outputs.new_version }}"
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
-          docker tag <%= name %>:latest "${IMAGE}:${VERSION}-${{ matrix.arch }}"
-          docker tag <%= name %>:latest-debug "${IMAGE}:${VERSION}-debug-${{ matrix.arch }}"
+          docker tag openclaw:latest "${IMAGE}:${VERSION}-${{ matrix.arch }}"
+          docker tag openclaw:latest-debug "${IMAGE}:${VERSION}-debug-${{ matrix.arch }}"
           docker save "${IMAGE}:${VERSION}-${{ matrix.arch }}" "${IMAGE}:${VERSION}-debug-${{ matrix.arch }}" > images.tar
       - name: Upload image artifact
         uses: actions/upload-artifact@v4
@@ -200,4 +200,4 @@ jobs:
           gh release create "${VERSION}" \
             --repo ${{ github.repository }} \
             --title "${VERSION}" \
-            --notes "<%= name %> ${VERSION}"
+            --notes "openclaw ${VERSION}"
