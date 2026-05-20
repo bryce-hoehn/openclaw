@@ -9,8 +9,7 @@ from jinja2 import Environment, FileSystemLoader
 TEMPLATES = [
     "flake.nix",
     "compose.yml",
-    "Dockerfile",
-    ".github/workflows/build-publish.yml",
+    "Dockerfile"
 ]
 
 STATIC_FILES = [
