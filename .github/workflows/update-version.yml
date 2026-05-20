@@ -26,7 +26,7 @@ jobs:
       - name: Record current version
         id: before
         run: |
-          VERSION=$(nix eval .#<%= name %>Version --raw --impure)
+          VERSION=$(nix eval .#openclawVersion --raw --impure)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Update flake.lock
@@ -35,13 +35,13 @@ jobs:
       - name: Check for version change
         id: after
         run: |
-          NEW_VERSION=$(nix eval .#<%= name %>Version --raw --impure)
+          NEW_VERSION=$(nix eval .#openclawVersion --raw --impure)
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
           if [ "${{ steps.before.outputs.version }}" = "$NEW_VERSION" ]; then
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "changed=true" >> $GITHUB_OUTPUT
-            echo "::notice::<%= name %> ${{ steps.before.outputs.version }} → $NEW_VERSION"
+            echo "::notice::openclaw ${{ steps.before.outputs.version }} → $NEW_VERSION"
           fi
 
       - name: Commit and push if changed
@@ -58,7 +58,7 @@ jobs:
           if [ "$OLD" = "$NEW" ]; then
             MSG="chore: update flake.lock"
           else
-            MSG="chore: <%= name %> ${OLD} → ${NEW}"
+            MSG="chore: openclaw ${OLD} → ${NEW}"
           fi
 
           git add flake.lock
