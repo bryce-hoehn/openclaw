@@ -13,12 +13,7 @@
     n2c = nix2container.outputs.packages.${system}.nix2container;
     imageConfig = {
       ExposedPorts = {
-        
         "18789/tcp" = {};
-        
-      };
-      Volumes = {
-        
       };
       
       Cmd = [ "${pkgs.openclaw}/bin/openclaw" ];
