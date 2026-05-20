@@ -4,10 +4,7 @@ services:
     userns_mode: "keep-id"
     container_name: openclaw
     ports:
-      
       - 18789:18789
-      
     volumes:
-      
       - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
