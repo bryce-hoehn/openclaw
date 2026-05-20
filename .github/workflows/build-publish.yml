@@ -97,8 +97,8 @@ jobs:
 
       - name: Build and load images
         run: |
-          nix run .#openclaw-image.copyToDockerDaemon --impure
-          nix run .#openclaw-debug-image.copyToDockerDaemon --impure
+          NIXPKGS_ALLOW_INSECURE=1 nix run .#openclaw-image.copyToDockerDaemon --impure
+          NIXPKGS_ALLOW_INSECURE=1 nix run .#openclaw-debug-image.copyToDockerDaemon --impure
       - name: Save images to file
         run: |
           VERSION="${{ needs.check-version.outputs.new_version }}"
