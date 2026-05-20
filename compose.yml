@@ -1,0 +1,15 @@
+services:
+  <%= name %>:
+    image: ghcr.io/podmania/<%= name %>:latest
+    userns_mode: "keep-id"
+    container_name: <%= name %>
+    ports:
+      <% for port in ports %>
+      - <%= port %>:<%= port %>
+      <% endfor %>
+    volumes:
+      <% for volume in volumes %>
+      - ./<%= volume | replace('/', '') %>:<%= volume %>
+      <% endfor %>
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped

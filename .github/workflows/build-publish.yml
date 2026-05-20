@@ -1,0 +1,203 @@
+name: Build & Publish
+
+permissions:
+  contents: write
+  packages: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild current version'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      new_version: ${{ steps.version.outputs.new_version }}
+      should_build: ${{ steps.check.outputs.should_build }}
+      force_rebuild: ${{ steps.check.outputs.force_rebuild }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Get current <%= name %> version from nixpkgs
+        id: version
+        run: |
+          VERSION=$(nix eval .#<%= name %>Version --raw --impure)
+          echo "new_version=$VERSION" >> $GITHUB_OUTPUT
+      - name: Check if version already exists or force rebuild requested
+        id: check
+        run: |
+          FORCE=${{ github.event.inputs.force_rebuild == 'true' }}
+          echo "force_rebuild=$FORCE" >> $GITHUB_OUTPUT
+          if [ "$FORCE" = "true" ]; then
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          NEW_VERSION=${{ steps.version.outputs.new_version }}
+          if docker manifest inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$NEW_VERSION > /dev/null 2>&1; then
+            echo "should_build=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_build=true" >> $GITHUB_OUTPUT
+          fi
+
+  cleanup:
+    needs: check-version
+    if: needs.check-version.outputs.force_rebuild == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Delete existing release and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ needs.check-version.outputs.new_version }}"
+          if gh release view "${VERSION}" --repo ${{ github.repository }} > /dev/null 2>&1; then
+            echo "Deleting release ${VERSION}"
+            gh release delete "${VERSION}" --repo ${{ github.repository }} --yes --cleanup-tag
+          fi
+      - name: Delete existing package version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ needs.check-version.outputs.new_version }}"
+          PACKAGE_NAME="${{ github.repository }}"
+          PACKAGE_NAME="${PACKAGE_NAME,,}"
+          PACKAGE_ID=$(gh api "/orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME#*/}" --jq '.id' 2>/dev/null || echo "")
+          if [ -n "$PACKAGE_ID" ]; then
+            VERSION_ID=$(gh api "/orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME#*/}/versions" --jq ".[] | select(.metadata.container.tags | index(\"${VERSION}\")) | .id" 2>/dev/null || echo "")
+            if [ -n "$VERSION_ID" ]; then
+              echo "Deleting package version ${VERSION_ID} for tag ${VERSION}"
+              gh api --method DELETE "/orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME#*/}/versions/${VERSION_ID}" 2>/dev/null || echo "Could not delete package version (may need manual cleanup)"
+            fi
+          fi
+
+  build:
+    needs: [check-version, cleanup]
+    if: needs.check-version.outputs.should_build == 'true'
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Build and load images
+        run: |
+          nix run .#<%= name %>-image.copyToDockerDaemon --impure
+          nix run .#<%= name %>-debug-image.copyToDockerDaemon --impure
+      - name: Save images to file
+        run: |
+          VERSION="${{ needs.check-version.outputs.new_version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          docker tag <%= name %>:latest "${IMAGE}:${VERSION}-${{ matrix.arch }}"
+          docker tag <%= name %>:latest-debug "${IMAGE}:${VERSION}-debug-${{ matrix.arch }}"
+          docker save "${IMAGE}:${VERSION}-${{ matrix.arch }}" "${IMAGE}:${VERSION}-debug-${{ matrix.arch }}" > images.tar
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.arch }}
+          path: images.tar
+          retention-days: 1
+
+  test:
+    needs: [check-version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-amd64
+      - name: Load and test images
+        run: |
+          docker load < images.tar
+          VERSION="${{ needs.check-version.outputs.new_version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+
+          CMD_PATH=$(docker inspect "${IMAGE}:${VERSION}-amd64" --format='{{index .Config.Cmd 0}}')
+          docker run --rm "${IMAGE}:${VERSION}-debug-amd64" /bin/bash -c "test -x $CMD_PATH && echo debug-ok"
+
+  publish:
+    needs: [check-version, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Download amd64 image
+        uses: actions/download-artifact@v4
+        with:
+          name: image-amd64
+      - name: Load amd64 image
+        run: docker load < images.tar
+      - name: Download arm64 image
+        uses: actions/download-artifact@v4
+        with:
+          name: image-arm64
+          path: arm64
+      - name: Load arm64 image
+        run: docker load < arm64/images.tar
+      - name: Push images and create manifests
+        run: |
+          VERSION="${{ needs.check-version.outputs.new_version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+
+          # --- Main ---
+          docker push "${IMAGE}:${VERSION}-amd64"
+          docker push "${IMAGE}:${VERSION}-arm64"
+          TAGS="${VERSION}"
+          IFS=. read -r MAJOR MINOR _ <<< "${VERSION}"
+          [ -n "${MAJOR}" ] && TAGS+=" ${MAJOR}"
+          [ -n "${MINOR}" ] && TAGS+=" ${MAJOR}.${MINOR}"
+          TAGS+=" latest"
+          for TAG in ${TAGS}; do
+            docker manifest create "${IMAGE}:${TAG}" --amend "${IMAGE}:${VERSION}-amd64" --amend "${IMAGE}:${VERSION}-arm64"
+            docker manifest push "${IMAGE}:${TAG}"
+          done
+
+          # --- Debug ---
+          docker push "${IMAGE}:${VERSION}-debug-amd64"
+          docker push "${IMAGE}:${VERSION}-debug-arm64"
+          DEBUG_TAGS="${VERSION}-debug"
+          [ -n "${MAJOR}" ] && DEBUG_TAGS+=" ${MAJOR}-debug"
+          [ -n "${MINOR}" ] && DEBUG_TAGS+=" ${MAJOR}.${MINOR}-debug"
+          DEBUG_TAGS+=" latest-debug"
+          for TAG in ${DEBUG_TAGS}; do
+            docker manifest create "${IMAGE}:${TAG}" --amend "${IMAGE}:${VERSION}-debug-amd64" --amend "${IMAGE}:${VERSION}-debug-arm64"
+            docker manifest push "${IMAGE}:${TAG}"
+          done
+
+  release:
+    needs: [check-version, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ needs.check-version.outputs.new_version }}"
+          if gh release view "${VERSION}" --repo ${{ github.repository }} > /dev/null 2>&1; then
+            echo "Release ${VERSION} already exists, skipping"
+            exit 0
+          fi
+          gh release create "${VERSION}" \
+            --repo ${{ github.repository }} \
+            --title "${VERSION}" \
+            --notes "<%= name %> ${VERSION}"
