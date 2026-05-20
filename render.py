@@ -108,8 +108,11 @@ def main():
         dst = os.path.join(output_dir, static_file)
         if os.path.exists(src):
             os.makedirs(os.path.dirname(dst), exist_ok=True)
-            shutil.copy2(src, dst)
-            print(f"Copied {static_file}")
+            if os.path.abspath(src) != os.path.abspath(dst):
+                shutil.copy2(src, dst)
+                print(f"Copied {static_file}")
+            else:
+                print(f"Skipped copying {static_file} (source and destination are the same)")
 
     readme_path = os.path.join(output_dir, "README.md")
     with open(readme_path, "w") as f:
