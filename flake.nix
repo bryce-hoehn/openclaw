@@ -12,7 +12,19 @@
     pkgs = nixpkgs.legacyPackages.${system};
     n2c = nix2container.outputs.packages.${system}.nix2container;
 
-    openclaw-entrypoint = pkgs.writeShellScriptBin "entrypoint" ''
+    version = "2026.5.12";
+    srcHash = "sha256-AAAAAAAAAAAAAA";
+    pkg = pkgs.openclaw.overrideAttrs (old: {
+      inherit version;
+      src = pkgs.fetchFromGitHub {
+        owner = "openclaw";
+        repo = "openclaw";
+        rev = "v${version}";
+        hash = srcHash;
+      };
+    });
+
+    entrypoint = pkgs.writeShellScriptBin "entrypoint" ''
       set -e
 
       if [ ! -f /config/openclaw.json ]; then
@@ -76,7 +88,7 @@
         tag = "latest";
         fromImage = base.packages.${system}.base-image;
         config = imageConfig;
-        copyToRoot = [ pkgs.openclaw openclaw-entrypoint ];
+        copyToRoot = [ pkgs.openclaw entrypoint ];
       };
 
       openclaw-debug-image = n2c.buildImage {
@@ -84,14 +96,14 @@
         tag = "latest-debug";
         fromImage = base.packages.${system}.base-debug-image;
         config = imageConfig;
-        copyToRoot = [ pkgs.openclaw openclaw-entrypoint ];
+        copyToRoot = [ pkgs.openclaw entrypoint ];
       };
 
-      openclaw = pkgs.openclaw;
+      openclaw = pkg;
 
       default = self.packages.${system}.openclaw-image;
     };
 
-    openclawVersion = pkgs.openclaw.version;
+    openclawVersion = version;
   };
 }
