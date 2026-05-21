@@ -12,8 +12,8 @@
     pkgs = nixpkgs.legacyPackages.${system};
     n2c = nix2container.outputs.packages.${system}.nix2container;
 
-    version = "2026.5.12";
-    srcHash = "sha256-AAAAAAAAAAAAAA";
+    version = "2026.5.19";
+    srcHash = "sha256-op7FJ0W5yEY2DBdcVPaGvoowHfq/xitmsTrAce5fsQs=";
     pkg = pkgs.openclaw.overrideAttrs (old: {
       inherit version;
       src = pkgs.fetchFromGitHub {
