@@ -79,7 +79,7 @@
         "PATH=${pkgs.openclaw}/bin:$PATH"
       ];
 
-      Cmd = [ "${openclaw-entrypoint}/bin/entrypoint" ];
+      Cmd = [ "${entrypoint}/bin/entrypoint" ];
     };
   in {
     packages.${system} = {
