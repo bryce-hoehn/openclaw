@@ -6,5 +6,7 @@ services:
     ports:
       - 18789:18789
     volumes:
+      - ./config:/config
+      - ./data:/data
       - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
