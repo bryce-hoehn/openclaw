@@ -76,7 +76,7 @@
         tag = "latest";
         fromImage = base.packages.${system}.base-image;
         config = imageConfig;
-        copyToRoot = [ pkgs.openclaw ];
+        copyToRoot = [ pkgs.openclaw openclaw-entrypoint ];
       };
 
       openclaw-debug-image = n2c.buildImage {
@@ -84,7 +84,8 @@
         tag = "latest-debug";
         fromImage = base.packages.${system}.base-debug-image;
         config = imageConfig;
-        copyToRoot = [ pkgs.openclaw ];
+          copyToRoot = [ pkgs.openclaw openclaw-entrypoint ];
+        };
       };
 
       openclaw = pkgs.openclaw;
