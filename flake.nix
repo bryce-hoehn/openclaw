@@ -32,29 +32,27 @@
     openclaw-entrypoint = pkgs.writeShellScriptBin "entrypoint" ''
       set -e
 
-      # Create the runtime directory inside the user's mapped volume
-      mkdir -p /config
-
-      # Copy the Nix-compiled template if the user has a fresh, empty volume mount
+      # Copy the Nix-compiled template if needed
       if [ ! -f /config/openclaw.json ]; then
         echo "[Init] Instantiating default OpenClaw config template from Nix Store..."
         cp ${openclaw-default-config}/etc/openclaw/openclaw.json /config/openclaw.json
-        # Explicitly ensure the file is writeable by the active runtime user profile
         chmod 644 /config/openclaw.json
       fi
 
-      # Handle automated token generation fallback if missing from host profile
+      # Auto-generate token
       if [ -z "$OPENCLAW_GATEWAY_TOKEN" ]; then
         echo "========================================================================"
-        echo "[SECURITY] OPENCLAW_GATEWAY_TOKEN was not supplied by the host profile."
+        echo "🔒 [SECURITY] NO OPENCLAW_GATEWAY_TOKEN SUPPLIED IN THE ENVIRONMENT."
+        echo "🔒 [SECURITY] GENERATING A NATIVE SECURE TOKEN VIA OPENCLAW ENGINE..."
         
-        export OPENCLAW_GATEWAY_TOKEN=$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')
+        # Pure native token generation using OpenClaw's internal doctor framework
+        GENERATED_TOKEN=$(${pkgs.openclaw}/bin/openclaw doctor --generate-gateway-token)
+        export OPENCLAW_GATEWAY_TOKEN="$GENERATED_TOKEN"
         
-        echo "[SECURITY] Generated a secure unique random token for this container run:"
         echo ""
         echo "   👉  $OPENCLAW_GATEWAY_TOKEN  👈"
         echo ""
-        echo "Please use the token above to authenticate when accessing the web GUI."
+        echo "Please copy this token to authenticate when accessing the web GUI."
         echo "========================================================================"
       else
         echo "[Init] Loading host-provided OPENCLAW_GATEWAY_TOKEN configuration..."
@@ -62,7 +60,7 @@
 
       echo "[Init] Launching dynamic OpenClaw gateway on LAN interface..."
 
-      # Launch the gateway using settings mapped in the Flake Env section
+      # Launch
       exec ${pkgs.openclaw}/bin/openclaw gateway run \
         --bind lan \
         --port 18789 \
