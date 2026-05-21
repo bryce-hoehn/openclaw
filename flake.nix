@@ -12,31 +12,13 @@
     pkgs = nixpkgs.legacyPackages.${system};
     n2c = nix2container.outputs.packages.${system}.nix2container;
 
-    openclaw-default-config = pkgs.writeTextFile {
-      name = "openclaw-default-config";
-      text = ''
-        {
-          "gateway": {
-            "mode": "local"
-          },
-          "agents": {
-            "defaults": {
-              "workspace": "/data"
-            }
-          }
-        }
-      '';
-      destination = "/etc/openclaw/openclaw.json";
-    };
-
     openclaw-entrypoint = pkgs.writeShellScriptBin "entrypoint" ''
       set -e
 
-      # Copy the Nix-compiled template if needed
       if [ ! -f /config/openclaw.json ]; then
-        echo "[Init] Instantiating default OpenClaw config template from Nix Store..."
-        cp ${openclaw-default-config}/etc/openclaw/openclaw.json /config/openclaw.json
-        chmod 644 /config/openclaw.json
+        echo "[Init] Setting up config parameters via OpenClaw Engine..."
+        ${pkgs.openclaw}/bin/openclaw config set gateway.mode "local"
+        ${pkgs.openclaw}/bin/openclaw config set agents.defaults.workspace "/data"
       fi
 
       # Auto-generate token
