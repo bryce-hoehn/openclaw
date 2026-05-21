@@ -16,7 +16,7 @@
         "18789/tcp" = {};
       };
       
-      Cmd = [ "${pkgs.openclaw}/bin/openclaw" ];
+      Cmd = [ "${pkgs.openclaw}/bin/openclaw" "daemon" ];
     };
   in {
     packages.${system} = {
