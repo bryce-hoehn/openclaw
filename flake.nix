@@ -64,6 +64,7 @@
         "XDG_CONFIG_HOME=/data/.config"
         "OPENCLAW_HOME=/config"
         "OPENCLAW_CONFIG_PATH=/config/openclaw.json"
+        "PATH=${pkgs.openclaw}/bin:$PATH"
       ];
 
       Cmd = [ "${openclaw-entrypoint}/bin/entrypoint" ];
