@@ -6,69 +6,7 @@ on:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: write
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - uses: DeterminateSystems/nix-installer-action@main
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Record current version
-        id: before
-        run: |
-          VERSION=$(nix eval .#openclawVersion --raw --impure)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Update flake.lock
-        run: nix flake update
-
-      - name: Check for version change
-        id: after
-        run: |
-          NEW_VERSION=$(nix eval .#openclawVersion --raw --impure)
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          if [ "${{ steps.before.outputs.version }}" = "$NEW_VERSION" ]; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-          else
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "::notice::openclaw ${{ steps.before.outputs.version }} → $NEW_VERSION"
-          fi
-
-      - name: Commit and push if changed
-        id: commit
-        run: |
-          if git diff --quiet flake.lock; then
-            echo "No changes to flake.lock"
-            echo "changed=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          OLD="${{ steps.before.outputs.version }}"
-          NEW="${{ steps.after.outputs.version }}"
-          if [ "$OLD" = "$NEW" ]; then
-            MSG="chore: update flake.lock"
-          else
-            MSG="chore: openclaw ${OLD} → ${NEW}"
-          fi
-
-          git add flake.lock
-          git commit -m "$MSG"
-          git push origin main
-          echo "changed=true" >> $GITHUB_OUTPUT
-
-      - name: Trigger build-publish workflow
-        if: steps.commit.outputs.changed == 'true'
-        run: |
-          gh workflow run build-publish.yml --ref main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    uses: podmania/actions/.github/workflows/update-version.yml@main
+    with:
+      upstream: openclaw/openclaw
+      tag-prefix: v
