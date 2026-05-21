@@ -84,8 +84,7 @@
         tag = "latest-debug";
         fromImage = base.packages.${system}.base-debug-image;
         config = imageConfig;
-          copyToRoot = [ pkgs.openclaw openclaw-entrypoint ];
-        };
+        copyToRoot = [ pkgs.openclaw openclaw-entrypoint ];
       };
 
       openclaw = pkgs.openclaw;
